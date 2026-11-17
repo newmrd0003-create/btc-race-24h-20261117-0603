@@ -111,8 +111,15 @@ await runBars({
     const held = state.positions.get(SYMBOL);
 
     if (held !== undefined && held.qty > 0n) {
-      if (totalQty <= 0n) return [];
-      const avgCost = (totalSpend * AVG_COST_SCALE) / totalQty;
+      // Cost basis normally comes from the fill reports above. If a
+      // position is ever held with no tracked fills (a missed report),
+      // fall back to the harness-reported position cost rather than
+      // holding forever with no exit: the basis is the same quantity,
+      // only fees-included instead of fees-out, so exits still fire.
+      const avgCost =
+        totalQty > 0n
+          ? (totalSpend * AVG_COST_SCALE) / totalQty
+          : (held.cost * AVG_COST_SCALE) / held.qty;
       const pnl = pnlBps(close, avgCost);
       if (pnl > peakBps) peakBps = pnl;
       const late = state.seq >= LATE_SEQ;
